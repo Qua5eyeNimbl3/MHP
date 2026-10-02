@@ -4006,6 +4006,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "movement_host"
+version = "0.1.0"
+dependencies = [
+ "libm",
+ "math_iw4",
+ "movement_iw4",
+ "playerstate_iw4",
+ "trace_iw4",
+]
+
+[[package]]
 name = "movement_iw4"
 version = "0.1.0"
 dependencies = [
