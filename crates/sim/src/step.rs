@@ -5,7 +5,7 @@ use bevy_ecs::schedule::{IntoScheduleConfigs, Schedule};
 use movement_iw4::{
     ANGLE2SHORT, AirMoveContext, CmdScaleWalkContext, CollisionBackend, GroundTraceInput,
     JumpLaunchContext, MoveBounds, PmoveSingleContext, SHORT2ANGLE, SprintContext, ViewAngleClamp,
-    WalkMoveContext, consume_player_events, footsteps_anim_move_type, get_max_sprint_time, pmove,
+    WalkMoveContext, consume_player_events, get_max_sprint_time, pmove,
 };
 use trace_iw4::{HITTYPE_ENTITY, Trace};
 
@@ -384,20 +384,16 @@ fn run_players_system(ecs: &mut World) {
             };
             let script = world.player_anim_script();
             let mantle = world.xanims();
-            let (
-                walking,
-                linked_bounds,
-                anim_movetype,
-                view_w,
-                primary,
-                moved_from,
-                moved_to,
-                stance_event,
-                reset_torso,
-                jump_animations,
-                force_movement_anim,
-                landing_animation,
-            ) = {
+            // The match's movement profile, when it is not MW2's own and
+            // this player is in a state it moves (an ordinary living
+            // player). Everyone else keeps the original `pmove` path below.
+            let provider = movement_host::provider(world.bootstrap_ref().movement_profile)
+                .filter(|p| world.player(*id).is_some_and(|ps| p.handles(ps)));
+            // A player's first move under a profile starts from empty state.
+            let mut blob = provider
+                .and_then(|_| world.movement_blobs.get(id).copied())
+                .unwrap_or(movement_host::ProviderBlob::EMPTY);
+            let (facts, view_w, primary, moved_from, moved_to) = {
                 let ps = world
                     .player_mut(*id)
                     .expect("Alive client has a player row");
@@ -406,40 +402,49 @@ fn run_players_system(ecs: &mut World) {
                     ps.pm_flags &= !playerstate_iw4::pm_flags::SHELLSHOCKED;
                 }
                 let moved_from = ps.origin;
-                let result = pmove(
-                    ps,
-                    &mut cmd,
-                    context,
-                    &backend,
-                    mantle.as_ref(),
-                    mantle.as_ref(),
-                );
-                let pml = result.pml;
-                let anim_movetype = pml.mantle_movetype.or_else(|| {
-                    footsteps_anim_move_type(
-                        ps,
-                        cmd.forwardmove,
-                        cmd.rightmove,
-                        pml.almost_ground_plane != 0,
-                    )
-                });
+                let facts = match provider {
+                    Some(provider) => {
+                        let env = movement_host::StepEnv {
+                            world: &backend,
+                            level_time,
+                            weapon_move_scale: scales.0,
+                            weapon_ads_move_scale: scales.1,
+                        };
+                        let mut mover = movement_host::Mover {
+                            ps,
+                            blob: &mut blob,
+                        };
+                        provider.step(&mut mover, &mut cmd, &env)
+                    }
+                    None => {
+                        let result = pmove(
+                            ps,
+                            &mut cmd,
+                            context,
+                            &backend,
+                            mantle.as_ref(),
+                            mantle.as_ref(),
+                        );
+                        movement_host::facts_from_pmove(ps, &cmd, &result)
+                    }
+                };
                 let (view_w, primary) = crate::pmove_anim_weapon_ids(ps);
                 let moved_to = ps.origin;
-                (
-                    pml.walking as i32,
-                    result.bounds,
-                    anim_movetype,
-                    view_w,
-                    primary,
-                    moved_from,
-                    moved_to,
-                    result.stance_event,
-                    result.reset_torso,
-                    pml.jump_animations,
-                    pml.mantle_movetype.is_some(),
-                    pml.landing_animation,
-                )
+                (facts, view_w, primary, moved_from, moved_to)
             };
+            if provider.is_some() {
+                world.movement_blobs.insert(*id, blob);
+            }
+            let movement_host::MovementFacts {
+                walking,
+                bounds: linked_bounds,
+                anim_movetype,
+                stance_event,
+                reset_torso,
+                jump_animations,
+                force_movement_anim,
+                landing_animation,
+            } = facts;
             world
                 .client_meta_mut(*id)
                 .input_receipt

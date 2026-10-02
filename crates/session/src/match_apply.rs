@@ -764,6 +764,30 @@ fn config_sets(text: &str) -> Vec<(String, String)> {
         .collect()
 }
 
+/// The movement system the host selected with `IW4L_MOVEMENT`, MW2's own
+/// when it is unset or empty. Every machine in a match must set the same
+/// value; nothing checks that across the network yet.
+fn movement_profile_from_env() -> Result<movement_host::ProfileId, InstallRefusal> {
+    let Ok(name) = std::env::var("IW4L_MOVEMENT") else {
+        return Ok(movement_host::PROFILE_IW4);
+    };
+    let name = name.trim();
+    if name.is_empty() {
+        return Ok(movement_host::PROFILE_IW4);
+    }
+    let Some(profile) = movement_host::profile_named(name) else {
+        let known: Vec<&str> = movement_host::profile_names().collect();
+        return Err(InstallRefusal::new(format!(
+            "IW4L_MOVEMENT={name} is not a movement profile; known: {}",
+            known.join(", ")
+        )));
+    };
+    if profile != movement_host::PROFILE_IW4 {
+        diag::info!(Sim, "movement: profile {name} for every player");
+    }
+    Ok(profile)
+}
+
 fn script_dvar_overrides() -> Vec<(String, String)> {
     std::env::var("IW4L_SCRIPT_DVARS")
         .map(|text| config_sets(&text.replace(';', "\n")))
@@ -1569,6 +1593,7 @@ fn install_clip_and_player(
         .collect();
     let locked_n = lock_reasons.iter().filter(|r| r.is_some()).count();
     let has_intermission_view = intermission_view.is_some();
+    let movement_profile = movement_profile_from_env()?;
     if let Err(err) = sim.bootstrap(sim::MatchBootstrap {
         spawns,
         classes,
@@ -1591,6 +1616,7 @@ fn install_clip_and_player(
         allow_debug_actions: true,
         intermission_view,
         airstrike_height,
+        movement_profile,
         ..Default::default()
     }) {
         diag::info!(Sim, "bootstrap: {err}");

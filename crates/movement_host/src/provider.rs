@@ -1,7 +1,7 @@
-use movement_iw4::CollisionBackend;
+use movement_iw4::{CollisionBackend, MoveBounds};
 use playerstate_iw4::{PlayerState, UserCmd};
 
-use crate::facts::{Hull, MovementFacts};
+use crate::facts::MovementFacts;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct ProfileId(pub u16);
@@ -35,14 +35,16 @@ pub struct ProviderBlob {
 
 impl Default for ProviderBlob {
     fn default() -> Self {
-        Self {
-            bytes: [0; Self::SIZE],
-        }
+        Self::EMPTY
     }
 }
 
 impl ProviderBlob {
     pub const SIZE: usize = 64;
+    /// All zero: a player's state before a provider has moved them.
+    pub const EMPTY: Self = Self {
+        bytes: [0; Self::SIZE],
+    };
     /// How many `f32` slots the blob holds.
     pub const SLOTS: usize = Self::SIZE / 4;
 
@@ -82,20 +84,24 @@ pub struct Mover<'a> {
 /// mask and reports every block as a stone surface, so a provider cannot
 /// yet tell ice, water or a ladder from stone there.
 ///
-/// The weapon fields exist because IW4 couples movement to the held gun
-/// (move-speed scale, ADS slowdown). A provider that ignores them is
-/// legal; one that honours them keeps guns feeling like guns.
+/// The weapon scales exist because IW4 couples movement to the held gun.
+/// They are the held weapon's own `moveSpeedScale` and
+/// `adsMoveSpeedScale`; how far the player is aimed in is
+/// `ps.f_weapon_pos_frac`. A provider that ignores them is legal; one that
+/// honours them keeps guns feeling like guns.
 pub struct StepEnv<'a> {
     pub world: &'a dyn CollisionBackend,
     pub level_time: i32,
-    pub weapon_speed_scale: f32,
-    pub aim_down_sight: bool,
+    pub weapon_move_scale: f32,
+    pub weapon_ads_move_scale: f32,
 }
 
-pub trait MovementProvider {
+pub trait MovementProvider: Sync {
     fn id(&self) -> ProfileId;
+    /// The name a host setting selects it by, such as `walker`.
+    fn name(&self) -> &'static str;
     fn tick_rate(&self) -> TickRate;
-    fn hull(&self, ps: &PlayerState) -> Hull;
+    fn bounds(&self, ps: &PlayerState) -> MoveBounds;
 
     /// Whether this provider moves the player in this state. By default
     /// only an ordinary living player: spectating, linked (vehicles,

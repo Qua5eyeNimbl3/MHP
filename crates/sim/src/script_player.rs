@@ -70,6 +70,8 @@ pub(crate) fn spawn(
         }
     };
     *world.ensure_player(id) = ps;
+    // A new life starts with fresh movement-provider state.
+    world.movement_blobs.remove(&id);
     diag::info!(
         Sim,
         "spawn: script client={} {sessionstate} at [{:.1}, {:.1}, {:.1}]",

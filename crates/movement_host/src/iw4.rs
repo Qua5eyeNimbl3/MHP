@@ -1,13 +1,13 @@
 use movement_iw4::{PmoveResult, footsteps_anim_move_type};
 use playerstate_iw4::{PlayerState, UserCmd};
 
-use crate::facts::{Hull, MovementFacts};
+use crate::facts::MovementFacts;
 
 /// Turns the result of today's `pmove` into the common facts, so both the
 /// IW4 path and foreign providers feed the same code after the move.
 ///
-/// This is the same derivation `step.rs` does inline now, so wrapping it
-/// should change nothing observable.
+/// This is the derivation `step.rs` did inline before the seam existed,
+/// moved here unchanged, so the default path behaves exactly as it did.
 #[must_use]
 pub fn facts_from_pmove(ps: &PlayerState, cmd: &UserCmd, result: &PmoveResult) -> MovementFacts {
     let pml = result.pml;
@@ -21,11 +21,7 @@ pub fn facts_from_pmove(ps: &PlayerState, cmd: &UserCmd, result: &PmoveResult) -
     });
     MovementFacts {
         walking: pml.walking as i32,
-        hull: Hull {
-            mins: result.bounds.mins,
-            maxs: result.bounds.maxs,
-            tracemask: result.bounds.tracemask,
-        },
+        bounds: result.bounds,
         anim_movetype,
         stance_event: result.stance_event,
         reset_torso: result.reset_torso,

@@ -1,10 +1,10 @@
 use movement_iw4::{
-    GroundTraceInput, ViewAngleClamp, footsteps_anim_move_type, update_view_angles,
+    GroundTraceInput, MoveBounds, ViewAngleClamp, footsteps_anim_move_type, update_view_angles,
 };
 use playerstate_iw4::{PlayerState, UserCmd, buttons};
 use trace_iw4::{ENTITYNUM_NONE, ENTITYNUM_WORLD};
 
-use crate::facts::{Hull, MovementFacts};
+use crate::facts::MovementFacts;
 use crate::provider::{MovementProvider, Mover, ProfileId, StepEnv, TickRate};
 
 /// The "parametric" class: a simple walker whose feel is all constants.
@@ -14,6 +14,7 @@ use crate::provider::{MovementProvider, Mover, ProfileId, StepEnv, TickRate};
 #[derive(Clone, Copy, Debug)]
 pub struct WalkerParams {
     pub profile: ProfileId,
+    pub name: &'static str,
     /// Map units per second.
     pub walk_speed: f32,
     pub sprint_scale: f32,
@@ -21,7 +22,7 @@ pub struct WalkerParams {
     pub jump_speed: f32,
     /// 0 keeps air velocity, 1 gives full ground control in the air.
     pub air_control: f32,
-    pub hull: Hull,
+    pub bounds: MoveBounds,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -36,12 +37,16 @@ impl MovementProvider for WalkerProvider {
         self.params.profile
     }
 
+    fn name(&self) -> &'static str {
+        self.params.name
+    }
+
     fn tick_rate(&self) -> TickRate {
         TickRate::Variable
     }
 
-    fn hull(&self, _ps: &PlayerState) -> Hull {
-        self.params.hull
+    fn bounds(&self, _ps: &PlayerState) -> MoveBounds {
+        self.params.bounds
     }
 
     fn step(&self, mover: &mut Mover<'_>, cmd: &mut UserCmd, env: &StepEnv<'_>) -> MovementFacts {
@@ -67,7 +72,10 @@ impl MovementProvider for WalkerProvider {
         let (sin, cos) = (libm::sinf(yaw), libm::cosf(yaw));
         let forward = f32::from(cmd.forwardmove) / 127.0;
         let right = f32::from(cmd.rightmove) / 127.0;
-        let mut speed = p.walk_speed * env.weapon_speed_scale;
+        let ads = ps.f_weapon_pos_frac.clamp(0.0, 1.0);
+        let weapon_scale =
+            env.weapon_move_scale + (env.weapon_ads_move_scale - env.weapon_move_scale) * ads;
+        let mut speed = p.walk_speed * weapon_scale;
         if cmd.buttons & buttons::SPRINT != 0 {
             speed *= p.sprint_scale;
         }
@@ -96,9 +104,9 @@ impl MovementProvider for WalkerProvider {
             let hit = env.world.trace(GroundTraceInput {
                 start: ps.origin,
                 end,
-                mins: p.hull.mins,
-                maxs: p.hull.maxs,
-                tracemask: p.hull.tracemask,
+                mins: p.bounds.mins,
+                maxs: p.bounds.maxs,
+                tracemask: p.bounds.tracemask,
             });
             if hit.allsolid != 0 {
                 ps.velocity[axis] = 0.0;
@@ -123,7 +131,7 @@ impl MovementProvider for WalkerProvider {
         let anim_movetype = footsteps_anim_move_type(ps, cmd.forwardmove, cmd.rightmove, grounded);
         MovementFacts {
             walking: i32::from(grounded),
-            hull: p.hull,
+            bounds: p.bounds,
             anim_movetype,
             stance_event: None,
             reset_torso: false,

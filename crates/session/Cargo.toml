@@ -21,6 +21,7 @@ audio.workspace = true
 net.workspace = true
 render_frontend.workspace = true
 render_fx.workspace = true
+movement_host.workspace = true
 sim.workspace = true
 gamemode_iw4.workspace = true
 clipmap_iw4.workspace = true

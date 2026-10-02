@@ -52,6 +52,11 @@ pub struct MatchBootstrap {
     pub intermission_view: Option<AuthoredSpawnPoint>,
 
     pub airstrike_height: Option<f32>,
+
+    /// The movement system every player in this match moves with. The
+    /// default is MW2's own `pmove`, on its original path; any other
+    /// profile is looked up in `movement_host`'s registry.
+    pub movement_profile: movement_host::ProfileId,
 }
 
 impl Default for MatchBootstrap {
@@ -68,6 +73,7 @@ impl Default for MatchBootstrap {
             time_limit_ms,
             intermission_view: None,
             airstrike_height: None,
+            movement_profile: movement_host::PROFILE_IW4,
         }
     }
 }

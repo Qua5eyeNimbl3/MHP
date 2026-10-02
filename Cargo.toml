@@ -149,6 +149,7 @@ lighting_iw4 = { path = "crates/lighting_iw4" }
 marks_iw4 = { path = "crates/marks_iw4" }
 math_iw4 = { path = "crates/math_iw4" }
 master_protocol = { path = "crates/master_protocol" }
+movement_host = { path = "crates/movement_host" }
 movement_iw4 = { path = "crates/movement_iw4" }
 net = { path = "crates/net" }
 perf = { path = "crates/perf" }

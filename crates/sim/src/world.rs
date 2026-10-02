@@ -618,6 +618,10 @@ pub struct SimState {
     pending_final_kill: Option<(ClientId, ClientId)>,
 
     pub(crate) external_motion: std::collections::HashSet<ClientId>,
+    /// Each player's private state for a non-default movement profile
+    /// (`movement_host::ProviderBlob`). Not carried in snapshots yet, so a
+    /// provider that keeps state here mispredicts on remote clients.
+    pub(crate) movement_blobs: HashMap<ClientId, movement_host::ProviderBlob>,
     last_pmove_walking: HashMap<ClientId, i32>,
 
     stuck_holdrand: u32,
@@ -716,6 +720,7 @@ impl Default for SimState {
             pending_script_audio: Vec::new(),
             pending_final_kill: None,
             external_motion: Default::default(),
+            movement_blobs: HashMap::new(),
             last_pmove_walking: HashMap::new(),
             stuck_holdrand: 0,
             last_stuck_ejects: Vec::new(),
@@ -1529,6 +1534,7 @@ impl SimState {
         self.lagcomp_sample.remove(&id);
         self.lagcomp_commands.retain(|(client, _), _| *client != id);
         self.external_motion.remove(&id);
+        self.movement_blobs.remove(&id);
         self.last_pmove_walking.remove(&id);
         self.last_anim_movement.remove(&id);
         self.anim_command_buttons.remove(&id);

@@ -1,16 +1,7 @@
-use movement_iw4::JumpAnimation;
-
-/// The collision hull and trace mask a provider moves with. The sim links
-/// the player into the world area with it after the move.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Hull {
-    pub mins: [f32; 3],
-    pub maxs: [f32; 3],
-    pub tracemask: u32,
-}
+use movement_iw4::{JumpAnimation, MoveBounds};
 
 /// What the rest of the tick reads back from a move. These are the values
-/// `step.rs` destructures after `pmove` today, formalized.
+/// `step.rs` destructures after `pmove`, formalized.
 ///
 /// The animation fields are IW4's own vocabulary: the soldier's animation
 /// script only understands those movement types. A foreign provider has to
@@ -19,7 +10,9 @@ pub struct Hull {
 pub struct MovementFacts {
     /// `pml.walking`: standing on something walkable.
     pub walking: i32,
-    pub hull: Hull,
+    /// The hull and trace mask the player moved with. The sim links the
+    /// player into the world area with it after the move.
+    pub bounds: MoveBounds,
     pub anim_movetype: Option<u8>,
     pub stance_event: Option<u8>,
     pub reset_torso: bool,
